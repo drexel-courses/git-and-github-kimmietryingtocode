@@ -1,0 +1,7 @@
+.venv/
+*.o
+wordcount
+*.pyc
+__pycache__/
+.DS_Store
+*~
