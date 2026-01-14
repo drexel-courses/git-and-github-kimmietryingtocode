@@ -1,0 +1,32 @@
+name: Warmup CI
+
+on:
+  push:
+    paths:
+      - "0-Warmup/**"
+  pull_request:
+    paths:
+      - "0-Warmup/**"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 0-Warmup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run tests
+        run: pytest
