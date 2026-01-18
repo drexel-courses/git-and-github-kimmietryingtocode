@@ -1,0 +1,10 @@
+pattern at start
+this line has PATTERN in caps
+another line with pattern in the middle
+no match here
+search appears once
+Search appears with different case
+CASE is here
+case is also here
+count
+count again
