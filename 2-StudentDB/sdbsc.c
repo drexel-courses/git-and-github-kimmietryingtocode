@@ -63,10 +63,10 @@ int open_db(char *dbFile, bool should_truncate)
 int get_student(int fd, int id, student_t *s)
 {
     if (s==NULL) {
-        return ERR_DB_OP;
+        return ERR_DB_FILE;
     }
 
-    int offset = id * STUDENT_RECORD_SIZE;
+    off_t offset = (off_t)id * STUDENT_RECORD_SIZE;
 
     if (lseek(fd, offset, SEEK_SET) == -1) {
         return ERR_DB_FILE;
@@ -141,7 +141,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa)
     strncpy(new_s.fname, fname, sizeof(new_s.fname) - 1);
     strncpy(new_s.lname, lname, sizeof(new_s.lname) - 1);
 
-    int offset = id * STUDENT_RECORD_SIZE;
+    off_t offset = (off_t)id * STUDENT_RECORD_SIZE;
 
     if (lseek(fd, offset, SEEK_SET) == -1) {
         printf(M_ERR_DB_READ);
@@ -198,7 +198,7 @@ int del_student(int fd, int id)
         return ERR_DB_FILE;
     }
 
-    int offset = id * STUDENT_RECORD_SIZE;
+    off_t offset = (off_t)id * STUDENT_RECORD_SIZE;
     if (lseek(fd, offset, SEEK_SET) == -1) {
         printf(M_ERR_DB_READ);
         return ERR_DB_FILE;
@@ -541,7 +541,7 @@ int compress_db(int fd)
             continue; // skip deleted/empty slots
         }
 
-        int offset = current_s.id * STUDENT_RECORD_SIZE;
+        off_t offset = (off_t)current_s.id * STUDENT_RECORD_SIZE;
         if (lseek(tmpfd, offset, SEEK_SET) == -1) {
             printf(M_ERR_DB_READ);
             close(tmpfd);
@@ -556,7 +556,7 @@ int compress_db(int fd)
         }
     }
 
-    // Flush temp file to disk
+    // Remove temp file to disk
     if (fsync(tmpfd) == -1) {
         printf(M_ERR_DB_WRITE);
         close(tmpfd);
@@ -819,6 +819,7 @@ int main(int argc, char *argv[])
 
     // dont forget to close the file before exiting, and setting the
     // proper exit code - see the header file for expected values
-    close(fd);
+    if (fd >= 0)
+        close(fd);
     exit(exit_code);
 }
