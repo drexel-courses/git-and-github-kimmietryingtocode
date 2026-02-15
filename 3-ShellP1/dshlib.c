@@ -125,6 +125,10 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
         return ERR_MEMORY;
     }
 
+    if (strlen(cmd_line) >= SH_CMD_MAX) {
+        return ERR_CMD_OR_ARGS_TOO_BIG;
+    }
+
     clear_cmd_buff(cmd_buff);
 
     // Copy into internal buffer
@@ -159,14 +163,7 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
             if (c == quote) {
                 quote = '\0';
             } else if (c == '\0') {
-                *dst = '\0';
-                if (token_start) {
-                    if (argc >= CMD_ARGV_MAX - 1) {
-                        return ERR_CMD_OR_ARGS_TOO_BIG;
-                    }
-                    cmd_buff->argv[argc++] = token_start;
-                }
-                break;
+                return ERR_CMD_ARGS_BAD;
             } else {
                 *dst++ = c;
             }
@@ -284,6 +281,10 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
         return ERR_MEMORY;
     }
 
+    if (strlen(cmd_line) >= SH_CMD_MAX) {
+        return ERR_CMD_OR_ARGS_TOO_BIG;
+    }
+
     clist->num = 0;
 
     char line_copy[SH_CMD_MAX];
@@ -307,34 +308,32 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
         memmove(line_copy, start, strlen(start) + 1);
     }
 
-    // Count pipes to enforce limit
-    int pipe_count = 0;
-    for (char *p = line_copy; *p; p++) {
-        if (*p == PIPE_CHAR) {
-            pipe_count++;
+    char *segment_start = line_copy;
+    while (1) {
+        char *pipe_pos = strchr(segment_start, PIPE_CHAR);
+        if (pipe_pos != NULL) {
+            *pipe_pos = '\0';
         }
-    }
-    if (pipe_count + 1 > CMD_MAX) {
-        return ERR_TOO_MANY_COMMANDS;
-    }
 
-    char *saveptr = NULL;
-    char *segment = strtok_r(line_copy, PIPE_STRING, &saveptr);
-    while (segment != NULL) {
-        // Trim segment
-        char *seg_start = segment;
+        char *seg_start = segment_start;
         while (*seg_start && isspace((unsigned char)*seg_start)) {
             seg_start++;
         }
-        char *seg_end = seg_start + strlen(seg_start) - 1;
-        while (seg_end > seg_start && isspace((unsigned char)*seg_end)) {
+
+        char *seg_end = seg_start + strlen(seg_start);
+        while (seg_end > seg_start && isspace((unsigned char)*(seg_end - 1))) {
             seg_end--;
         }
-        *(seg_end + 1) = '\0';
+        *seg_end = '\0';
 
         if (*seg_start == '\0') {
             free_cmd_list(clist);
             return WARN_NO_CMDS;
+        }
+
+        if (clist->num >= CMD_MAX) {
+            free_cmd_list(clist);
+            return ERR_TOO_MANY_COMMANDS;
         }
 
         int rc = alloc_cmd_buff(&clist->commands[clist->num]);
@@ -350,7 +349,11 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
         }
 
         clist->num++;
-        segment = strtok_r(NULL, PIPE_STRING, &saveptr);
+
+        if (pipe_pos == NULL) {
+            break;
+        }
+        segment_start = pipe_pos + 1;
     }
 
     if (clist->num == 0) {
@@ -529,6 +532,17 @@ int exec_local_cmd_loop()
             break;
         }
 
+        // If we did not read a newline, the user entered a line longer than
+        // our buffer; drain the remainder so it does not become a new command.
+        if (strchr(cmd_line, '\n') == NULL) {
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF) {
+                // discard
+            }
+            rc = ERR_CMD_OR_ARGS_TOO_BIG;
+            continue;
+        }
+
         cmd_line[strcspn(cmd_line, "\n")] = '\0';
 
         // Trim copy for exit check
@@ -583,7 +597,7 @@ int exec_local_cmd_loop()
         }
     }
 
-    return rc;
+    return OK;
 }
 
 //===================================================================
