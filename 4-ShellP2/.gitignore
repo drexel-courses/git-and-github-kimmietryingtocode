@@ -1,0 +1,11 @@
+# Build artifacts
+dsh
+*.o
+
+# Python test artifacts
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Optional local trace artifacts
+trace*.txt
